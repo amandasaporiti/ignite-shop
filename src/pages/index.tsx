@@ -1,61 +1,110 @@
 import Image from 'next/image'
-import { HomeContainer, Product } from '../styles/pages/home'
-import { useKeenSlider } from 'keen-slider/react'
-
-import 'keen-slider/keen-slider.min.css'
-
 import Link from 'next/link'
 
-import { stripe } from '../lib/stripe'
-import { GetStaticProps } from 'next'
 import Stripe from 'stripe'
 import Head from 'next/head'
 
+import {
+  HomeContainer,
+  Product,
+  ProductPrice,
+  SliderContainer,
+} from '../styles/pages/home'
+
+import { stripe } from '../lib/stripe'
+import { GetStaticProps } from 'next'
+import { IProduct } from '../interfaces/product'
+
+import { BagButton } from '../components/BagButton'
+import { useBag } from '../hooks/useBag'
+import { MouseEvent, useEffect, useState } from 'react'
+import { Skeleton } from '../components/Skeleton'
+
+import useEmblaCarousel from 'embla-carousel-react'
+
 interface HomeProps {
-  products: {
-    id: string
-    name: string
-    price: string
-    imageUrl: string
-  }[]
+  products: IProduct[]
 }
 
 export default function Home({ products }: HomeProps) {
-  const [sliderRef] = useKeenSlider({
-    slides: {
-      perView: 3,
-      spacing: 48,
-    },
+  const [isLoading, setIsLoading] = useState(true)
+
+  const [emblaRef] = useEmblaCarousel({
+    align: 'start',
+    skipSnaps: false,
+    dragFree: true,
   })
+
+  const { addToBag } = useBag()
+
+  function handleAddToBag(
+    event: MouseEvent<HTMLButtonElement>,
+    product: IProduct,
+  ) {
+    event.preventDefault()
+    addToBag(product)
+  }
+
+  useEffect(() => {
+    // Fake loading to use Skeleton component
+    const timeOut = setTimeout(() => setIsLoading(false), 2000)
+
+    return () => clearTimeout(timeOut)
+  }, [])
+
   return (
     <>
       <Head>
         <title>Home - Ignite Shop</title>
       </Head>
-      <HomeContainer ref={sliderRef} className="keen-slider">
-        {products.map((product) => {
-          return (
-            <Link
-              href={`/product/${product.id}`}
-              key={product.id}
-              prefetch={false}
-            >
-              <Product className="keen-slider__slide">
-                <Image
-                  src={product.imageUrl}
-                  alt={product.name}
-                  width={480}
-                  height={520}
-                />
-                <footer>
-                  <strong>{product.name}</strong>
-                  <span>{product.price}</span>
-                </footer>
-              </Product>
-            </Link>
-          )
-        })}
-      </HomeContainer>
+
+      <div style={{ overflow: 'hidden', width: '100%' }}>
+        <HomeContainer>
+          <div className="embla" ref={emblaRef}>
+            <SliderContainer className="embla__container container">
+              {isLoading ? (
+                <>
+                  <Skeleton className="embla__slide" />
+                  <Skeleton className="embla__slide" />
+                  <Skeleton className="embla__slide" />
+                </>
+              ) : (
+                <>
+                  {products.map((product) => (
+                    <Link
+                      key={product.id}
+                      href={`/product/${product.id}`}
+                      prefetch={false}
+                      passHref
+                    >
+                      <Product className="embla__slide">
+                        <Image
+                          src={product.imageUrl}
+                          width={520}
+                          height={480}
+                          alt=""
+                        />
+
+                        <footer>
+                          <ProductPrice>
+                            <strong>{product.name}</strong>
+                            <span>{product.price}</span>
+                          </ProductPrice>
+                          <BagButton
+                            title="Adicionar a sacola"
+                            onClick={(event) => handleAddToBag(event, product)}
+                            color="green"
+                          />
+                        </footer>
+                      </Product>
+                    </Link>
+                  ))}
+                </>
+              )}
+            </SliderContainer>
+          </div>
+        </HomeContainer>
+      </div>
     </>
   )
 }
@@ -75,6 +124,8 @@ export const getStaticProps: GetStaticProps = async () => {
         style: 'currency',
         currency: 'BRL',
       }).format(price.unit_amount / 100),
+      numberPrice: price.unit_amount / 100,
+      defaultPriceId: price.id,
     }
   })
 
@@ -82,6 +133,6 @@ export const getStaticProps: GetStaticProps = async () => {
     props: {
       products,
     },
-    revalidate: 60 * 60 * 3, // A cada 3 horas
+    revalidate: 60 * 60 * 2, // 2 hours,
   }
 }

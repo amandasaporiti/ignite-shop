@@ -53,13 +53,18 @@ export const ProductDetails = styled('div', {
     marginTop: 'auto',
     borderRadius: 8,
     background: '$green500',
-    textAlign: 'center',
     padding: '20px 32px',
-    color: '$white',
-    fontWeight: 'bold',
-    fontSize: '$md',
     border: 0,
     transition: 'background-color 0.2s',
+
+    span: {
+      color: '$white',
+      fontWeight: 'bold',
+      fontSize: '$md',
+      textAlign: 'center',
+      display: 'block',
+      marginTop: 0,
+    },
 
     '&:disabled': {
       opacity: 0.6,

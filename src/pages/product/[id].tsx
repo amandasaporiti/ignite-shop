@@ -8,41 +8,24 @@ import Image from 'next/image'
 import { GetStaticPaths, GetStaticProps } from 'next'
 import { stripe } from '../../lib/stripe'
 import Stripe from 'stripe'
-import axios from 'axios'
-import { useState } from 'react'
 import Head from 'next/head'
+import { IProduct } from '../../interfaces/product'
+import { useBag } from '../../hooks/useBag'
 
 interface ProductProps {
-  product: {
-    id: string
-    name: string
-    description: string
-    price: string
-    imageUrl: string
-    defaultPriceId: string
-  }
+  product: IProduct
 }
 
 export default function Product({ product }: ProductProps) {
-  const [isCreatingSessionCheckout, setIsCreatingSessionCheckout] =
-    useState(false)
+  const { addToBag, bagProducts } = useBag()
 
-  async function handleRedirectToPayment() {
-    try {
-      setIsCreatingSessionCheckout(true)
-
-      const response = await axios.post('/api/checkout', {
-        priceId: product.defaultPriceId,
-      })
-
-      const { checkoutUrl } = response.data
-
-      window.location.href = checkoutUrl
-    } catch (error) {
-      setIsCreatingSessionCheckout(false)
-      alert('Falha no redirecionamento para o checkout')
-    }
+  function handleAddToBag(product: IProduct) {
+    addToBag(product)
   }
+
+  const isAlreadyInBag = bagProducts.findIndex(
+    (index) => index.id === product.id,
+  )
 
   return (
     <>
@@ -66,10 +49,14 @@ export default function Product({ product }: ProductProps) {
           <p>{product.description}</p>
 
           <button
-            disabled={isCreatingSessionCheckout}
-            onClick={handleRedirectToPayment}
+            disabled={isAlreadyInBag >= 0}
+            onClick={() => handleAddToBag(product)}
           >
-            Comprar agora
+            {isAlreadyInBag >= 0 ? (
+              <span>Já adicionado à sacola</span>
+            ) : (
+              <span>Colocar na sacola</span>
+            )}
           </button>
         </ProductDetails>
       </ProductContainer>
@@ -78,14 +65,10 @@ export default function Product({ product }: ProductProps) {
 }
 
 export const getStaticPaths: GetStaticPaths = async () => {
+  const paths = [{ params: { id: 'prod_ORvIgCE2uEJd4D' } }]
+
   return {
-    paths: [
-      {
-        params: {
-          id: 'prod_ORvIgCE2uEJd4D',
-        },
-      },
-    ],
+    paths,
     fallback: 'blocking',
   }
 }
@@ -111,10 +94,11 @@ export const getStaticProps: GetStaticProps<any, { id: string }> = async ({
           style: 'currency',
           currency: 'BRL',
         }).format(price.unit_amount / 100),
+        numberPrice: price.unit_amount / 100,
         description: product.description,
         defaultPriceId: price.id,
       },
     },
-    revalidate: 60 * 60 * 3, // 3 Horas
+    revalidate: 60 * 60 * 1, // 1 hour
   }
 }
